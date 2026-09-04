@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agentic SDLC Orchestrator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◈</span>
+    <div>
+      <h1>Agentic SDLC Orchestrator</h1>
+      <p class="sub">Requirement in, governed software out</p>
+    </div>
+  </div>
+  <nav class="tabs">
+    <button class="tab active" data-view="dashboard">Dashboard</button>
+    <button class="tab" data-view="newrun">New Run</button>
+    <button class="tab" data-view="approvals">
+      Approvals <span id="approvalBadge" class="badge hidden">0</span>
+    </button>
+    <button class="tab" data-view="policies">Policies</button>
+  </nav>
+  <div class="conn"><span id="connDot" class="dot"></span><span id="connText">connecting…</span></div>
+</header>
+
+<main>
+
+  <!-- ══════════════════════════════════ DASHBOARD ══════════════════════════════════ -->
+  <section id="view-dashboard" class="view active">
+    <div class="metrics-strip" id="metricsStrip"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Runs</h2>
+        <button class="btn ghost" onclick="App.refreshDashboard()">Refresh</button>
+      </div>
+      <table class="grid" id="runsTable">
+        <thead>
+          <tr>
+            <th>Run</th><th>Scenario</th><th>Autonomy</th><th>Status</th>
+            <th>Progress</th><th>Started</th><th>Duration</th>
+          </tr>
+        </thead>
+        <tbody><tr><td colspan="7" class="empty">No runs yet — start one from “New Run”.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════ NEW RUN ══════════════════════════════════ -->
+  <section id="view-newrun" class="view">
+    <div class="panel narrow">
+      <div class="panel-head"><h2>Start a run</h2></div>
+      <div class="form">
+        <label>Requirement</label>
+        <textarea id="reqText" rows="3"
+          placeholder="Build a URL shortener service with shorten and redirect APIs"></textarea>
+
+        <div class="presets">
+          <span class="preset-label">Scenarios:</span>
+          <button class="chip" data-req="Build a URL shortener service with shorten and redirect APIs">Greenfield</button>
+          <button class="chip" data-req="Add click analytics and rate limiting to the existing service">Brownfield</button>
+          <button class="chip" data-req="Make the URL shortener more reliable and faster">Ambiguous</button>
+        </div>
+
+        <label>Autonomy level</label>
+        <select id="autonomy">
+          <option value="L0_OBSERVE">L0 — Observe (propose only, approve everything)</option>
+          <option value="L1_ASSISTED">L1 — Assisted (approve anything above LOW)</option>
+          <option value="L2_DELEGATED" selected>L2 — Delegated (approve HIGH and above)</option>
+          <option value="L3_AUTONOMOUS">L3 — Autonomous (approve CRITICAL only)</option>
+        </select>
+        <p class="hint">Autonomy tunes <em>when</em> a human is asked. It never overrides policy — a
+          policy <code>DENY</code> stops an L3 run exactly as it stops an L0 one.</p>
+
+        <div class="actions">
+          <button class="btn primary" id="startBtn" onclick="App.startRun()">Start run</button>
+          <button class="btn ghost" onclick="App.previewPlan()">Preview plan only</button>
+        </div>
+        <div id="newRunResult"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════ RUN DETAIL ══════════════════════════════════ -->
+  <section id="view-run" class="view">
+    <div class="run-head">
+      <button class="btn ghost small" onclick="App.show('dashboard')">← Runs</button>
+      <h2 id="runTitle">Run</h2>
+      <span id="runStatus" class="status"></span>
+      <div class="spacer"></div>
+      <div class="controls">
+        <button class="btn ghost small" onclick="App.control('pause')">Pause</button>
+        <button class="btn ghost small" onclick="App.control('resume')">Resume</button>
+        <button class="btn ghost small" onclick="App.control('stop')">Safe-stop</button>
+        <button class="btn ghost small" onclick="App.control('rollback')">Rollback</button>
+        <button class="btn ghost small" onclick="App.replan()">Re-plan…</button>
+      </div>
+    </div>
+
+    <p class="req" id="runRequirement"></p>
+    <div class="counts" id="runCounts"></div>
+
+    <div id="runApprovals"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Dependency graph</h2>
+        <div class="legend" id="dagLegend"></div>
+      </div>
+      <div class="dag-scroll"><div id="dag" class="dag"></div></div>
+      <p class="hint dag-hint">Columns are execution levels — everything in one column can run in
+        parallel. Click a node to inspect it.</p>
+    </div>
+
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h2>Nodes</h2></div>
+        <table class="grid compact" id="nodesTable">
+          <thead><tr><th>State</th><th>Task</th><th>Stage</th><th>Risk</th><th>Try</th><th>ms</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Event log</h2><span class="hint" id="eventCount"></span>
+        </div>
+        <div class="log" id="eventLog"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>Decision lineage</h2></div>
+      <div class="log" id="decisionLog"></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════ APPROVALS ══════════════════════════════════ -->
+  <section id="view-approvals" class="view">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Approval inbox</h2>
+        <button class="btn ghost" onclick="App.refreshApprovals()">Refresh</button>
+      </div>
+      <div id="approvalList"><p class="empty">Nothing is waiting on you.</p></div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════ POLICIES ══════════════════════════════════ -->
+  <section id="view-policies" class="view">
+    <div class="panel">
+      <div class="panel-head"><h2>Guardrails</h2></div>
+      <p class="hint">Policy is absolute and evaluated on every node. Autonomy can make the system
+        ask more often; it can never make a <code>DENY</code> go away.</p>
+      <table class="grid" id="policyTable">
+        <thead><tr><th>ID</th><th>Action</th><th>Rule</th><th>Why</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- ══════════════════════════════════ NODE INSPECTOR ══════════════════════════════════ -->
+<aside id="inspector" class="inspector">
+  <div class="inspector-head">
+    <h3 id="inspTitle">Node</h3>
+    <button class="btn ghost small" onclick="App.closeInspector()">✕</button>
+  </div>
+  <div id="inspBody"></div>
+</aside>
+<div id="scrim" class="scrim" onclick="App.closeInspector()"></div>
+
+<div id="toast" class="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

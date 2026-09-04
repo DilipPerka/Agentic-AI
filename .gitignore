@@ -1,0 +1,42 @@
+# ── Build output ──────────────────────────────────────────────────────────────
+target/
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# ── Runtime state ─────────────────────────────────────────────────────────────
+# The orchestrator's H2 database. Regenerated on first run, and committing it would
+# freeze one machine's run history into the repository.
+data/
+*.mv.db
+*.trace.db
+*.lock.db
+
+# ── Generated workloads ───────────────────────────────────────────────────────
+# One URL shortener per run, each with its own git repository. Deliberately not
+# committed: it is output, not source, every run produces another copy, and nested
+# repositories would land in the index as broken gitlink entries rather than files.
+# The README says how to regenerate it.
+workspace/
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+nohup.out
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+.factorypath
+nbproject/private/
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*~
