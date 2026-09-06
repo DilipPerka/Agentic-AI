@@ -29,6 +29,12 @@ public class GitTool {
      * a CI container, a fresh checkout — {@code git commit} fails with "Please tell me who you are",
      * and the first thing anyone would see is a node failing for reasons that have nothing to do
      * with the code it wrote.
+     *
+     * <p>Line-ending translation is disabled for the same reason. Blueprints are emitted with LF; on
+     * a Windows machine with the default {@code core.autocrlf=true} git rewrites them to CRLF on
+     * checkout, so a tree that was just committed immediately reports as dirty and
+     * {@link #isClean} — which rollback relies on — is never true. Configured locally, so the
+     * developer's own global settings are untouched.
      */
     public ToolResult ensureRepository(Workspace workspace) {
         if (!Files.isDirectory(workspace.root().resolve(".git"))) {
@@ -43,6 +49,8 @@ public class GitTool {
         }
         run(workspace, "config", "user.email", "orchestrator@agentic.local");
         run(workspace, "config", "user.name", "Agentic SDLC Orchestrator");
+        run(workspace, "config", "core.autocrlf", "false");
+        run(workspace, "config", "core.safecrlf", "false");
         return ToolResult.ok("Repository ready");
     }
 

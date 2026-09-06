@@ -1,6 +1,7 @@
 package com.agentic.orchestrator.tools;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.agentic.orchestrator.sandbox.ContentPolicy;
@@ -158,6 +159,54 @@ class ToolLayerTest {
             assertThatThrownBy(() -> processes.run(workspace.root(), Duration.ofSeconds(5),
                     List.of("bash", "-c", "echo hi")))
                     .isInstanceOf(SandboxViolationException.class);
+        }
+
+        @Test
+        @DisplayName("the same tool is recognised by its Windows spelling")
+        void acceptsPlatformSpellings() {
+            Workspace workspace = workspace();
+
+            // mvn is mvn.cmd on Windows and the wrapper is mvnw.cmd. Matching the raw string, as
+            // the allowlist first did, rejected every build on Windows before it started.
+            assertThatCode(() -> processes.run(workspace.root(), Duration.ofMillis(1),
+                    List.of("mvn.cmd", "-v"))).doesNotThrowAnyException();
+            assertThatCode(() -> processes.run(workspace.root(), Duration.ofMillis(1),
+                    List.of("MVN.CMD", "-v"))).doesNotThrowAnyException();
+        }
+
+        @Test
+        @DisplayName("a Windows spelling does not smuggle a non-allowlisted tool past the check")
+        void spellingToleranceIsNotABypass() {
+            Workspace workspace = workspace();
+
+            assertThatThrownBy(() -> processes.run(workspace.root(), Duration.ofSeconds(5),
+                    List.of("powershell.exe", "-c", "ls")))
+                    .isInstanceOf(SandboxViolationException.class)
+                    .hasMessageContaining("allowlist");
+            assertThatThrownBy(() -> processes.run(workspace.root(), Duration.ofSeconds(5),
+                    List.of("cmd.exe", "/c", "dir")))
+                    .isInstanceOf(SandboxViolationException.class);
+        }
+
+        @Test
+        @DisplayName("only the Maven wrapper may be named by a path")
+        void refusesPathAddressedToolsOtherThanTheWrapper() {
+            Workspace workspace = workspace();
+
+            // The workspace is agent-writable. Allowing any allowlisted base name to be reached by
+            // path would let an agent write its own "git" into the workspace and be handed it.
+            assertThatThrownBy(() -> processes.run(workspace.root(), Duration.ofSeconds(5),
+                    List.of(workspace.root().resolve("git").toString(), "status")))
+                    .isInstanceOf(SandboxViolationException.class)
+                    .hasMessageContaining("must be found on PATH");
+            assertThatThrownBy(() -> processes.run(workspace.root(), Duration.ofSeconds(5),
+                    List.of("../../usr/bin/java", "-version")))
+                    .isInstanceOf(SandboxViolationException.class);
+
+            // The wrapper is the one exception, and it is a file the build itself ships.
+            assertThatCode(() -> processes.run(workspace.root(), Duration.ofMillis(1),
+                    List.of(workspace.root().resolve("mvnw").toString(), "-v")))
+                    .doesNotThrowAnyException();
         }
 
         @Test

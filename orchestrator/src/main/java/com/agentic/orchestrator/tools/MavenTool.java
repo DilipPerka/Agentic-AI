@@ -1,5 +1,6 @@
 package com.agentic.orchestrator.tools;
 
+import com.agentic.orchestrator.sandbox.Platform;
 import com.agentic.orchestrator.sandbox.Workspace;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -74,10 +75,27 @@ public class MavenTool {
         return result;
     }
 
-    /** Prefers a wrapper in the workspace so the build does not depend on the host's Maven. */
+    /**
+     * Prefers a wrapper in the workspace so the build does not depend on the host's Maven.
+     *
+     * <p>Two things differ per platform and both of them are load-bearing. The wrapper is
+     * {@code mvnw.cmd} on Windows and {@code mvnw} elsewhere, and Maven itself is {@code mvn.cmd}
+     * rather than {@code mvn} — Java's process launcher appends only {@code .exe} when searching
+     * {@code PATH}, so a bare {@code mvn} is simply not found and every build fails with a
+     * "cannot run program" that looks nothing like its cause.
+     *
+     * <p>The wrapper is named by its absolute path rather than {@code ./mvnw}. A relative command is
+     * resolved against the child's working directory on Unix but against the <em>parent's</em> on
+     * Windows, so the relative form quietly looks in the wrong place.
+     */
     private String mavenExecutable(Workspace workspace) {
+        if (Platform.isWindows()) {
+            Path wrapper = workspace.root().resolve("mvnw.cmd");
+            // Not isExecutable: on Windows it answers for any readable file, so it proves nothing.
+            return Files.isRegularFile(wrapper) ? wrapper.toString() : "mvn.cmd";
+        }
         Path wrapper = workspace.root().resolve("mvnw");
-        return Files.isExecutable(wrapper) ? "./mvnw" : "mvn";
+        return Files.isExecutable(wrapper) ? wrapper.toString() : "mvn";
     }
 
     private static boolean looksLikeAMissingDependency(ToolResult result) {

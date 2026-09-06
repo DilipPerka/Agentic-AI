@@ -32,7 +32,7 @@ Running the build as root leaves a root-owned `target/`, and the next build fail
 ```bash
 cd ~/learning/orchestrator
 export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-./mvnw test          # 196 tests, ~2 minutes. Do this the day before, not live.
+./mvnw test          # 215 tests, ~2 minutes. Do this the day before, not live.
 ```
 
 ### 3. Start clean
