@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,13 +90,43 @@ public class MavenTool {
      * Windows, so the relative form quietly looks in the wrong place.
      */
     private String mavenExecutable(Workspace workspace) {
+
         if (Platform.isWindows()) {
+
+            // 1. Prefer wrapper inside generated workspace
             Path wrapper = workspace.root().resolve("mvnw.cmd");
-            // Not isExecutable: on Windows it answers for any readable file, so it proves nothing.
-            return Files.isRegularFile(wrapper) ? wrapper.toString() : "mvn.cmd";
+
+            if (Files.isRegularFile(wrapper)) {
+                return wrapper.toString();
+            }
+
+            // 2. Use MAVEN_HOME directly
+            String mavenHome = System.getenv("MAVEN_HOME");
+
+            if (mavenHome != null && !mavenHome.isBlank()) {
+
+                Path mvn = Paths.get(
+                        mavenHome,
+                        "bin",
+                        "mvn.cmd"
+                );
+
+                if (Files.isRegularFile(mvn)) {
+                    return mvn.toString();
+                }
+            }
+
+            // 3. Last fallback
+            return "mvn.cmd";
         }
+
         Path wrapper = workspace.root().resolve("mvnw");
-        return Files.isExecutable(wrapper) ? wrapper.toString() : "mvn";
+
+        if (Files.isExecutable(wrapper)) {
+            return wrapper.toString();
+        }
+
+        return "mvn";
     }
 
     private static boolean looksLikeAMissingDependency(ToolResult result) {

@@ -61,7 +61,8 @@ public class ProcessRunner {
      * {@code git} and have the orchestrator run it. The Maven wrapper is the one case that needs it,
      * and it is a file the build itself ships.
      */
-    private static final String PATH_ADDRESSABLE = "mvnw";
+    private static final Set<String> PATH_ADDRESSABLE =
+            Set.of("mvnw", "mvn");
 
     private static final List<String> EXECUTABLE_SUFFIXES = List.of(".cmd", ".bat", ".exe");
 
@@ -86,10 +87,9 @@ public class ProcessRunner {
             throw new SandboxViolationException(
                     "Executable is not on the allowlist: " + executable);
         }
-        if (namesAPath(executable) && !PATH_ADDRESSABLE.equals(tool)) {
+        if (namesAPath(executable) && !PATH_ADDRESSABLE.contains(tool)) {
             throw new SandboxViolationException(
-                    "Only " + PATH_ADDRESSABLE + " may be named by a path; "
-                            + tool + " must be found on PATH: " + executable);
+                    "Executable may not be named by a path: " + executable);
         }
         for (String argument : command) {
             if (argument == null || argument.indexOf('\0') >= 0) {
